@@ -29,10 +29,24 @@ function decryptMessage(key, encryptedMessage) {
   }
 }
 
-function verifyCertificate(certificate) {
-  const knownCertificates = ['server1-cert', 'server2-cert', 'server3-cert'];
-  return knownCertificates.includes(certificate);
-}
+const verifyCertificate = certificate => {
+  const knownIssuers = [
+    'C=AU\nST=Some-State\nO=Internet Widgits Pty Ltd',
+    'C=UA\nST=Zhytomyr-Region\nO=Readme Experts Ltd'
+  ];
+  try {
+    const parsedCertificate = new crypto.X509Certificate(certificate);
+
+    const isTrusted = knownIssuers.includes(parsedCertificate.issuer);
+
+    const isNotExpired = new Date(parsedCertificate.validTo) > new Date();
+
+    return isTrusted && isNotExpired;
+  } catch (error) {
+    console.error('Error verifying certificate:', error);
+    return false;
+  }
+};
 
 function generateSessionKeys(clientRandom, serverRandom, premaster) {
   // Об'єднання клієнтського та серверного випадкових рядків з секретом premaster
@@ -51,7 +65,8 @@ function getMessageFromData(message = '', payload = {}) {
   return JSON.stringify({ message, ...payload });
 }
 
-module.exports = { encryptMessage,
+module.exports = {
+  encryptMessage,
   verifyCertificate,
   decryptMessage,
   generateSessionKeys,
