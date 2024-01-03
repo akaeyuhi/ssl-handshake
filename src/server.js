@@ -16,13 +16,17 @@ const server = net.createServer(socket => {
   const initPayload = { random: serverRandom, certificate: serverCertificate };
   const serverKey = fs.readFileSync('./keys/server-key.pem');
 
+  const sendMessage = (message, userId = serverRandom, payload = {}) => {
+    const encryptedMessage = encryptMessage(sessionKeys.serverKey, message);
+    socket.write(getMessageFromData(encryptedMessage, { userId, ...payload }));
+  };
+
   socket.write(getMessageFromData('привіт сервера', { ...initPayload }));
 
   socket.on('data', data => {
     let receivedData = null;
     try {
       receivedData = JSON.parse(data.toString());
-      console.log(receivedData);
     } catch (e) {
       console.error(e);
       socket.end();
@@ -50,11 +54,12 @@ const server = net.createServer(socket => {
         const handshakeCompletionMessage = 'Здійснюється безпечне симетричне шифрування. ' +
           'Рукостискання завершено. ' +
           'Зв\'язок продовжується за допомогою ключів сеансу.';
-        const encryptedCompletionMessage = encryptMessage(
-          sessionKeys.serverKey,
-          handshakeCompletionMessage
-        );
-        socket.write(getMessageFromData(encryptedCompletionMessage));
+        sendMessage(handshakeCompletionMessage);
+      } else {
+        console.log(`user ${receivedData.userId}: ` + decryptedMessage);
+        if (receivedData.userId !== serverRandom) {
+          sendMessage(decryptedMessage, receivedData.userId);
+        }
       }
     }
   });

@@ -1,8 +1,18 @@
 'use strict';
 const net = require('net');
 const crypto = require('crypto');
-const { encryptMessage, decryptMessage, generateSessionKeys } = require('./utils.js');
-const { getMessageFromData } = require('./utils');
+const {
+  encryptMessage,
+  decryptMessage,
+  generateSessionKeys,
+  getMessageFromData,
+  verifyCertificate
+} = require('./utils.js');
+const readline = require('node:readline/promises');
+const rl = readline.createInterface({
+  input: process.stdin, output:
+  process.stdout
+});
 
 let sessionKeys;
 let clientRandom;
@@ -14,11 +24,28 @@ const client = net.createConnection({ port: 3000 }, () => {
   client.write(getMessageFromData('привіт', { random: clientRandom }));
 });
 
+const sendMessage = (message, payload = {}) => {
+  const encryptedMessage = encryptMessage(sessionKeys.clientKey, message);
+  client.write(getMessageFromData(encryptedMessage, { userId: clientRandom, ...payload }));
+};
+
+const chat = async () => {
+  console.log('Enter your message. Type /end to exit\n');
+  while (true) {
+    const answer = await rl.question('');
+    if (answer === '/end') {
+      break;
+    }
+    sendMessage(answer);
+  }
+  sendMessage('Disconnected!\n');
+  client.end();
+};
+
 client.on('data', data => {
   let receivedData = null;
   try {
     receivedData = JSON.parse(data.toString());
-    console.log(receivedData);
   } catch (e) {
     console.error(e);
     client.end();
@@ -26,13 +53,13 @@ client.on('data', data => {
 
   if (receivedData && receivedData.message === 'привіт сервера') {
     serverRandom = receivedData.random;
-    const certificate = receivedData.certificate;
+    const certificate = Buffer.from(receivedData.certificate);
 
     // Step 3: Автентифікація
-    console.log('Server Certificate:', certificate);
+    console.log('Server Certificate:', certificate.toString());
 
     // Перевірка сертифікату сервера
-    const isCertificateValid = true; // verifyCertificate(certificate) ;
+    const isCertificateValid = verifyCertificate(certificate);
 
     if (isCertificateValid) {
       console.log('Server certificate verified by client');
@@ -46,7 +73,9 @@ client.on('data', data => {
         },
         Buffer.from(premasterSecret)
       );
-      client.write(getMessageFromData('premaster', { premaster: encryptedPremaster }));
+      client.write(getMessageFromData(
+        'premaster',
+        { premaster: encryptedPremaster, userId: clientRandom }));
       sessionKeys = generateSessionKeys(clientRandom, serverRandom, premasterSecret);
     } else {
       console.log('Server certificate verification failed');
@@ -56,10 +85,10 @@ client.on('data', data => {
     const decryptedMessage = decryptMessage(sessionKeys.serverKey, receivedData.message);
     if (decryptedMessage === 'готовий') {
       const readyMessage = 'готовий';
-      const encryptedReadyMessage = encryptMessage(sessionKeys.clientKey, readyMessage);
-      client.write(getMessageFromData(encryptedReadyMessage));
-    } else {
-      console.log('Decrypted Message:', decryptedMessage);
+      sendMessage(readyMessage);
+      chat();
+    } else if (receivedData.userId !== clientRandom) {
+      console.log(`user ${receivedData.userId}:`, decryptedMessage);
     }
   }
 });
