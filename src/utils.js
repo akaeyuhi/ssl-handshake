@@ -46,4 +46,8 @@ function generateSessionKeys(clientRandom, serverRandom, premaster) {
     return { clientKey, serverKey };
 }
 
-module.exports = { encryptMessage, verifyCertificate, decryptMessage, generateSessionKeys };
+function getMessageFromData(message = '', payload = {}) {
+    return JSON.stringify({ message, ...payload});
+}
+
+module.exports = { encryptMessage, verifyCertificate, decryptMessage, generateSessionKeys, getMessageFromData };
