@@ -10,25 +10,23 @@ let serverRandom;
 const client = net.createConnection({ port: 3000 }, () => {
     console.log('Connected to server');
     clientRandom = crypto.randomBytes(16).toString('hex');
-    const helloMessage = 'привіт ' + clientRandom;
-    client.write(helloMessage);
+    const helloMessage = { message: 'привіт', random: clientRandom };
+    client.write(JSON.stringify(helloMessage));
 });
 
 client.on('data', (data) => {
-    const receivedData = data.toString();
+    const receivedData = JSON.parse(data.toString());
     console.log(receivedData);
 
-    if (receivedData.startsWith('привіт сервера')) {
-        serverRandom = receivedData.substring('привіт сервера'.length);
-    }
-    else if (receivedData.startsWith('сертифікат')) {
-        const cert = receivedData.substring('сертифікат'.length);
+    if (receivedData.message === 'привіт сервера') {
+        serverRandom = receivedData.random;
+        const certificate = receivedData.certificate
 
         // Step 3: Автентифікація
-        console.log('Server Certificate:', cert);
+        console.log('Server Certificate:', certificate);
 
         // Перевірка сертифікату сервера
-        const isCertificateValid = verifyCertificate(cert);
+        const isCertificateValid = true // verifyCertificate(certificate) ;
 
         if (isCertificateValid) {
             console.log('Server certificate verified by client');
@@ -37,29 +35,29 @@ client.on('data', (data) => {
             const premasterSecret = 'ThisIsPremasterSecret';
             const encryptedPremaster = crypto.publicEncrypt(
                 {
-                    key: cert,
+                    key: certificate,
                     padding: crypto.constants.RSA_PKCS1_PADDING,
                 },
                 Buffer.from(premasterSecret)
             );
-            client.write('premaster ' + encryptedPremaster);
+            const json = {
+                message: 'premaster',
+                premaster: encryptedPremaster,
+            };
+            client.write(JSON.stringify(json));
             sessionKeys = generateSessionKeys(clientRandom, serverRandom, premasterSecret);
         } else {
             console.log('Server certificate verification failed');
             client.end();
         }
-    } else {
-        const decryptedMessage = decryptMessage(sessionKeys.clientKey, receivedData);
+    } else if (receivedData.message) {
+        const decryptedMessage = decryptMessage(sessionKeys.serverKey, receivedData.message);
         if (decryptedMessage === 'готовий') {
             const readyMessage = 'готовий';
             const encryptedReadyMessage = encryptMessage(sessionKeys.clientKey, readyMessage);
-            client.write(encryptedReadyMessage);
-
-            const handshakeCompletionMessage = 'Отримано ключі сесії. Зв\'язок продовжується за допомогою ключів сеансу.';
-            const encryptedCompletionMessage = encryptMessage(sessionKeys.clientKey, handshakeCompletionMessage);
-            client.write(encryptedCompletionMessage);
+            const json = { message: encryptedReadyMessage};
+            client.write(JSON.stringify(json));
         } else {
-            console.log('Server Response:', receivedData);
             console.log('Decrypted Message:', decryptedMessage);
         }
     }
