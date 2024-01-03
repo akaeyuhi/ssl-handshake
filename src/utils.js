@@ -3,18 +3,29 @@ const crypto = require('crypto');
 function encryptMessage(key, message) {
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-    const encrypted = Buffer.concat([cipher.update(message, 'utf-8'), cipher.final()]);
-    return Buffer.concat([iv, encrypted]);
+    try {
+        const encrypted = Buffer.concat([cipher.update(message, 'utf-8'), cipher.final()]);
+        return Buffer.concat([iv, encrypted]);
+    } catch (e) {
+        console.error(e);
+        return e;
+    }
 }
 
 function decryptMessage(key, encryptedMessage) {
+    const encryptedString = Buffer.from(encryptedMessage);
     // Розшифрування повідомлення сеансовим ключем
-    const iv = encryptedMessage.slice(0, 16);
-    const encrypted = encryptedMessage.slice(16);
+    const iv = encryptedString.subarray(0, 16);
+    const encrypted = encryptedString.subarray(16);
 
     const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
-    return decrypted.toString('utf-8');
+    try {
+        const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+        return decrypted.toString('utf-8');
+    } catch (e) {
+        console.error(e);
+        return e;
+    }
 }
 
 function verifyCertificate(certificate) {
