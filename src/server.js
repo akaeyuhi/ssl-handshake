@@ -12,7 +12,6 @@ const server = net.createServer((socket) => {
     let sessionKeys;
 
     serverRandom = crypto.randomBytes(16).toString('hex');
-    serverRandom = crypto.randomBytes(16).toString('hex');
     const serverCertificate = fs.readFileSync('./keys/server-cert.pem');
     const initPayload = { random: serverRandom, certificate: serverCertificate };
     const serverKey = fs.readFileSync('./keys/server-key.pem');
