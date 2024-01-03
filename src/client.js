@@ -1,7 +1,7 @@
 const net = require('net');
-const fs = require('fs');
 const crypto = require('crypto');
-const { encryptMessage, verifyCertificate, decryptMessage, extractSessionKeys, generateSessionKeys} = require('./utils.js');
+const { encryptMessage, decryptMessage, generateSessionKeys} = require('./utils.js');
+const {getMessageFromData} = require("./utils");
 
 let sessionKeys;
 let clientRandom;
@@ -10,13 +10,18 @@ let serverRandom;
 const client = net.createConnection({ port: 3000 }, () => {
     console.log('Connected to server');
     clientRandom = crypto.randomBytes(16).toString('hex');
-    const helloMessage = { message: 'привіт', random: clientRandom };
-    client.write(JSON.stringify(helloMessage));
+    client.write(getMessageFromData('привіт', { random: clientRandom}));
 });
 
 client.on('data', (data) => {
-    const receivedData = JSON.parse(data.toString());
-    console.log(receivedData);
+    let receivedData = null;
+    try {
+        receivedData = JSON.parse(data.toString());
+        console.log(receivedData);
+    } catch (e) {
+        console.error(e);
+        client.end();
+    }
 
     if (receivedData.message === 'привіт сервера') {
         serverRandom = receivedData.random;
@@ -40,11 +45,7 @@ client.on('data', (data) => {
                 },
                 Buffer.from(premasterSecret)
             );
-            const json = {
-                message: 'premaster',
-                premaster: encryptedPremaster,
-            };
-            client.write(JSON.stringify(json));
+            client.write(getMessageFromData('premaster', { premaster: encryptedPremaster }));
             sessionKeys = generateSessionKeys(clientRandom, serverRandom, premasterSecret);
         } else {
             console.log('Server certificate verification failed');
@@ -55,8 +56,7 @@ client.on('data', (data) => {
         if (decryptedMessage === 'готовий') {
             const readyMessage = 'готовий';
             const encryptedReadyMessage = encryptMessage(sessionKeys.clientKey, readyMessage);
-            const json = { message: encryptedReadyMessage};
-            client.write(JSON.stringify(json));
+            client.write(getMessageFromData(encryptedReadyMessage));
         } else {
             console.log('Decrypted Message:', decryptedMessage);
         }
