@@ -1,57 +1,51 @@
 const net = require('net');
 const fs = require('fs');
 const crypto = require('crypto');
-const { encryptMessage } = require("./utils.js");
+const { encryptMessage, generateSessionKeys, decryptMessage} = require('./utils.js');
 
 const server = net.createServer((socket) => {
     console.log('Client connected');
 
-    const serverHello = 'привіт сервера ' + crypto.randomBytes(16).toString('hex');
-    const serverCertificate = fs.readFileSync('server-cert.pem');
+    let clientRandom;
+    let serverRandom;
+    let sessionKeys;
+
+    serverRandom = crypto.randomBytes(16).toString('hex');
+    const serverHello = 'привіт сервера ' + serverRandom;
+    serverRandom = crypto.randomBytes(16).toString('hex');
+    const serverCertificate = fs.readFileSync('./keys/server-cert.pem');
 
     socket.write(serverHello);
-    socket.write(serverCertificate);
-
-    let clientVerified = false;
+    //socket.write('сертифікат ' + serverCertificate);
 
     socket.on('data', (data) => {
-        if (!clientVerified) {
-            // Step 3: Автентифікація
-            const receivedData = data.toString();
-            console.log('Client Certificate:', receivedData.substring('привіт сервера'.length));
+        const receivedData = data.toString();
+        console.log(receivedData);
 
-            const isCertificateValid = verifyClientCertificate(receivedData.substring('привіт сервера'.length));
-
-            if (isCertificateValid) {
-                clientVerified = true;
-                console.log('Client certificate verified by server');
-            } else {
-                console.log('Client certificate verification failed');
-                socket.end();
-            }
-
-        } else {
-            const encryptedPremaster = data;
-
+        if (receivedData.startsWith('привіт')) {
+            clientRandom = receivedData.substring('привіт'.length);
+        } else if (receivedData.startsWith('premaster')) {
             const decryptedPremaster = crypto.privateDecrypt(
                 {
-                    key: fs.readFileSync('server-key.pem'),
+                    key: serverCertificate,
                     padding: crypto.constants.RSA_PKCS1_PADDING,
                 },
-                encryptedPremaster
+                data
             );
 
-            const sessionKeys = generateSessionKeys(decryptedPremaster);
+            sessionKeys = generateSessionKeys(clientRandom, serverRandom, decryptedPremaster);
 
             const readyMessage = 'готовий';
             const encryptedReadyMessage = encryptMessage(sessionKeys.serverKey, readyMessage);
             socket.write(encryptedReadyMessage);
-
-            const handshakeCompletionMessage = 'Здійснюється безпечне симетричне шифрування. Рукостискання завершено. Зв\'язок продовжується за допомогою ключів сеансу.';
-            const encryptedCompletionMessage = encryptMessage(sessionKeys.serverKey, handshakeCompletionMessage);
-            socket.write(encryptedCompletionMessage);
-
-            socket.end();
+        } else {
+            const decryptedMessage = decryptMessage(sessionKeys.clientKey, receivedData);
+            if (decryptedMessage === 'готовий') {
+                const handshakeCompletionMessage = 'Здійснюється безпечне симетричне шифрування. Рукостискання завершено. Зв\'язок продовжується за допомогою ключів сеансу.';
+                const encryptedCompletionMessage = encryptMessage(sessionKeys.serverKey, handshakeCompletionMessage);
+                socket.write(encryptedCompletionMessage);
+            }
+            //socket.end();
         }
     });
 
@@ -64,10 +58,3 @@ const serverPort = 3000;
 server.listen(serverPort, () => {
     console.log(`Server listening on port ${serverPort}`);
 });
-
-function generateSessionKeys() {
-    const clientKey = crypto.randomBytes(32).toString('hex'); // 256 біт
-    const serverKey = crypto.randomBytes(32).toString('hex'); // 256 біт
-
-    return { clientKey, serverKey };
-}
