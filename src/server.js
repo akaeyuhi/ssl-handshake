@@ -59,9 +59,11 @@ const server = net.createServer(socket => {
 
       const readyMessage = 'готовий';
       sendMessage(readyMessage, client.sessionKeys);
+
     } else if (receivedData && receivedData.message) {
       const keys = clients.find(item => item.random === receivedData.userId).sessionKeys;
       const decryptedMessage = decryptMessage(keys.clientKey, receivedData.message);
+
       if (decryptedMessage === 'готовий') {
         const handshakeCompletionMessage = 'Здійснюється безпечне симетричне шифрування. ' +
           'Рукостискання завершено. ' +

@@ -55,7 +55,6 @@ client.on('data', data => {
     if (isCertificateValid) {
       console.log('Server certificate verified by client');
 
-      // Step 4: Обмін секретними рядками
       const premasterSecret = 'ThisIsPremasterSecret';
       const encryptedPremaster = crypto.publicEncrypt(
         {
