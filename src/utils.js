@@ -2,6 +2,20 @@
 const crypto = require('crypto');
 const readline = require('node:readline');
 
+class Client {
+  random = '';
+  sessionKeys = null;
+  socket = null;
+
+  constructor(random, socket) {
+    this.random = random;
+    this.socket = socket;
+  }
+  set keys(sessionKeys) {
+    this.sessionKeys = sessionKeys;
+  }
+}
+
 function encryptMessage(key, message) {
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
@@ -82,6 +96,7 @@ async function* questions(query) {
 }
 
 module.exports = {
+  Client,
   encryptMessage,
   verifyCertificate,
   decryptMessage,

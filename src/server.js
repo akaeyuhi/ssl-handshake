@@ -2,22 +2,13 @@
 const net = require('net');
 const fs = require('fs');
 const crypto = require('crypto');
-const { encryptMessage, generateSessionKeys, decryptMessage } = require('./utils.js');
-const { getMessageFromData } = require('./utils');
-
-class Client {
-  random = '';
-  sessionKeys = null;
-  socket = null;
-
-  constructor(random, socket) {
-    this.random = random;
-    this.socket = socket;
-  }
-  set keys(sessionKeys) {
-    this.sessionKeys = sessionKeys;
-  }
-}
+const {
+  Client,
+  encryptMessage,
+  generateSessionKeys,
+  decryptMessage,
+  getMessageFromData,
+} = require('./utils.js');
 
 const clients = [];
 const server = net.createServer(socket => {
@@ -42,7 +33,7 @@ const server = net.createServer(socket => {
     }
   };
 
-  socket.write(getMessageFromData('привіт сервера', { ...initPayload }));
+  socket.write(getMessageFromData('привіт сервера', initPayload));
 
   socket.on('data', data => {
     let receivedData = null;
