@@ -10,7 +10,7 @@ const {
   getMessageFromData,
 } = require('./utils.js');
 
-const clients = [];
+let clients = [];
 const server = net.createServer(socket => {
   console.log('Client connected');
 
@@ -78,6 +78,8 @@ const server = net.createServer(socket => {
 
   socket.on('end', () => {
     console.log('Client disconnected');
+    const newClients = clients.filter(item => item.socket !== socket);
+    clients = newClients;
   });
 });
 
