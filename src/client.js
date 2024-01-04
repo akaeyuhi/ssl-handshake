@@ -8,11 +8,7 @@ const {
   getMessageFromData,
   verifyCertificate
 } = require('./utils.js');
-const readline = require('node:readline/promises');
-const rl = readline.createInterface({
-  input: process.stdin, output:
-  process.stdout
-});
+const readline = require('node:readline');
 
 let sessionKeys;
 let clientRandom;
@@ -31,16 +27,28 @@ const sendMessage = (message, payload = {}) => {
 
 const chat = async () => {
   console.log('Enter your message. Type /end to exit\n');
-  while (true) {
-    const answer = await rl.question('');
-    if (answer === '/end') {
-      break;
-    }
+  for await (const answer of questions('')) {
+    if (answer === '/end') break;
     sendMessage(answer);
   }
   sendMessage('Disconnected!\n');
   client.end();
 };
+
+async function* questions(query) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  try {
+    for (;;) {
+      yield new Promise(resolve => rl.question(query, resolve));
+    }
+  } finally {
+    rl.close();
+  }
+}
 
 client.on('data', data => {
   let receivedData = null;
@@ -54,8 +62,6 @@ client.on('data', data => {
   if (receivedData && receivedData.message === 'привіт сервера') {
     serverRandom = receivedData.random;
     const certificate = Buffer.from(receivedData.certificate);
-
-    // Step 3: Автентифікація
     console.log('Server Certificate:', certificate.toString());
 
     // Перевірка сертифікату сервера
@@ -86,7 +92,9 @@ client.on('data', data => {
     if (decryptedMessage === 'готовий') {
       const readyMessage = 'готовий';
       sendMessage(readyMessage);
-      chat();
+      chat().then();
+    } else if (receivedData.userId !== clientRandom && receivedData.userId === serverRandom) {
+      console.log(`user server:`, decryptedMessage);
     } else if (receivedData.userId !== clientRandom) {
       console.log(`user ${receivedData.userId}:`, decryptedMessage);
     }
