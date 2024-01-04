@@ -18,9 +18,10 @@ class Client {
 }
 
 const clients = [];
-
+const sockets = new Set();
 const server = net.createServer(socket => {
   console.log('Client connected');
+  sockets.add(socket);
 
   const serverRandom = crypto.randomBytes(16).toString('hex');
   const serverCertificate = fs.readFileSync('./keys/server-cert.pem');
@@ -79,6 +80,7 @@ const server = net.createServer(socket => {
 
   socket.on('end', () => {
     console.log('Client disconnected');
+    sockets.delete(socket);
   });
 });
 
