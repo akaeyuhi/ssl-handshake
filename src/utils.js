@@ -1,5 +1,6 @@
 'use strict';
 const crypto = require('crypto');
+const readline = require('node:readline');
 
 function encryptMessage(key, message) {
   const iv = crypto.randomBytes(16);
@@ -65,10 +66,26 @@ function getMessageFromData(message = '', payload = {}) {
   return JSON.stringify({ message, ...payload });
 }
 
+async function* questions(query) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  try {
+    for (;;) {
+      yield new Promise(resolve => rl.question(query, resolve));
+    }
+  } finally {
+    rl.close();
+  }
+}
+
 module.exports = {
   encryptMessage,
   verifyCertificate,
   decryptMessage,
   generateSessionKeys,
-  getMessageFromData
+  getMessageFromData,
+  questions
 };

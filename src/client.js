@@ -6,9 +6,9 @@ const {
   decryptMessage,
   generateSessionKeys,
   getMessageFromData,
-  verifyCertificate
+  verifyCertificate,
+  questions
 } = require('./utils.js');
-const readline = require('node:readline');
 
 let sessionKeys;
 let clientRandom;
@@ -34,21 +34,6 @@ const chat = async () => {
   sendMessage('Disconnected!\n');
   client.end();
 };
-
-async function* questions(query) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  try {
-    for (;;) {
-      yield new Promise(resolve => rl.question(query, resolve));
-    }
-  } finally {
-    rl.close();
-  }
-}
 
 client.on('data', data => {
   let receivedData = null;
