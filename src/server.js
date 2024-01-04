@@ -66,8 +66,6 @@ const server = net.createServer(socket => {
       const client = clients.find(item => item.random === receivedData.userId);
       client.keys = generateSessionKeys(client.random, serverRandom, decryptedPremaster);
 
-      console.log(client);
-
       const readyMessage = 'готовий';
       sendMessage(readyMessage, client.sessionKeys);
     } else if (receivedData && receivedData.message) {
