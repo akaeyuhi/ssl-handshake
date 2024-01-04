@@ -8,9 +8,11 @@ const { getMessageFromData } = require('./utils');
 class Client {
   random = '';
   sessionKeys = null;
+  socket = null;
 
-  constructor(random) {
+  constructor(random, socket) {
     this.random = random;
+    this.socket = socket;
   }
   set keys(sessionKeys) {
     this.sessionKeys = sessionKeys;
@@ -18,10 +20,8 @@ class Client {
 }
 
 const clients = [];
-const sockets = new Set();
 const server = net.createServer(socket => {
   console.log('Client connected');
-  sockets.add(socket);
 
   const serverRandom = crypto.randomBytes(16).toString('hex');
   const serverCertificate = fs.readFileSync('./keys/server-cert.pem');
@@ -31,6 +31,15 @@ const server = net.createServer(socket => {
   const sendMessage = (message, keys, userId = serverRandom, payload = {}) => {
     const encryptedMessage = encryptMessage(keys.serverKey, message);
     socket.write(getMessageFromData(encryptedMessage, { userId, ...payload }));
+  };
+
+  const sendToAll = (message, userId) => {
+    for (const client of clients) {
+      if (client.socket !== socket) {
+        const encryptedMessage = encryptMessage(client.sessionKeys.serverKey, message);
+        client.socket.write(getMessageFromData(encryptedMessage, { userId }));
+      }
+    }
   };
 
   socket.write(getMessageFromData('привіт сервера', { ...initPayload }));
@@ -45,7 +54,7 @@ const server = net.createServer(socket => {
     }
 
     if (receivedData && receivedData.message === 'привіт') {
-      clients.push(new Client(receivedData.random));
+      clients.push(new Client(receivedData.random, socket));
     } else if (receivedData && receivedData.message === 'premaster') {
       const decryptedPremaster = crypto.privateDecrypt(
         {
@@ -72,7 +81,7 @@ const server = net.createServer(socket => {
       } else {
         console.log(`user ${receivedData.userId}: ` + decryptedMessage);
         if (receivedData.userId !== serverRandom) {
-          sendMessage(decryptedMessage, keys, receivedData.userId);
+          sendToAll(decryptedMessage, receivedData.userId);
         }
       }
     }
@@ -80,7 +89,6 @@ const server = net.createServer(socket => {
 
   socket.on('end', () => {
     console.log('Client disconnected');
-    sockets.delete(socket);
   });
 });
 
