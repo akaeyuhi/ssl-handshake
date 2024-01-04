@@ -5,19 +5,30 @@ const crypto = require('crypto');
 const { encryptMessage, generateSessionKeys, decryptMessage } = require('./utils.js');
 const { getMessageFromData } = require('./utils');
 
+class Client {
+  random = '';
+  sessionKeys = null;
+
+  constructor(random) {
+    this.random = random;
+  }
+  set keys(sessionKeys) {
+    this.sessionKeys = sessionKeys;
+  }
+}
+
+const clients = [];
+
 const server = net.createServer(socket => {
   console.log('Client connected');
-
-  let clientRandom;
-  let sessionKeys;
 
   const serverRandom = crypto.randomBytes(16).toString('hex');
   const serverCertificate = fs.readFileSync('./keys/server-cert.pem');
   const initPayload = { random: serverRandom, certificate: serverCertificate };
   const serverKey = fs.readFileSync('./keys/server-key.pem');
 
-  const sendMessage = (message, userId = serverRandom, payload = {}) => {
-    const encryptedMessage = encryptMessage(sessionKeys.serverKey, message);
+  const sendMessage = (message, keys, userId = serverRandom, payload = {}) => {
+    const encryptedMessage = encryptMessage(keys.serverKey, message);
     socket.write(getMessageFromData(encryptedMessage, { userId, ...payload }));
   };
 
@@ -33,7 +44,7 @@ const server = net.createServer(socket => {
     }
 
     if (receivedData && receivedData.message === 'привіт') {
-      clientRandom = receivedData.random;
+      clients.push(new Client(receivedData.random));
     } else if (receivedData && receivedData.message === 'premaster') {
       const decryptedPremaster = crypto.privateDecrypt(
         {
@@ -42,23 +53,25 @@ const server = net.createServer(socket => {
         },
         Buffer.from(receivedData.premaster),
       );
+      const client = clients.find(item => item.random === receivedData.userId);
+      client.keys = generateSessionKeys(client.random, serverRandom, decryptedPremaster);
 
-      sessionKeys = generateSessionKeys(clientRandom, serverRandom, decryptedPremaster);
+      console.log(client);
 
       const readyMessage = 'готовий';
-      const encryptedReadyMessage = encryptMessage(sessionKeys.serverKey, readyMessage);
-      socket.write(getMessageFromData(encryptedReadyMessage));
+      sendMessage(readyMessage, client.sessionKeys);
     } else if (receivedData && receivedData.message) {
-      const decryptedMessage = decryptMessage(sessionKeys.clientKey, receivedData.message);
+      const keys = clients.find(item => item.random === receivedData.userId).sessionKeys;
+      const decryptedMessage = decryptMessage(keys.clientKey, receivedData.message);
       if (decryptedMessage === 'готовий') {
         const handshakeCompletionMessage = 'Здійснюється безпечне симетричне шифрування. ' +
           'Рукостискання завершено. ' +
           'Зв\'язок продовжується за допомогою ключів сеансу.';
-        sendMessage(handshakeCompletionMessage);
+        sendMessage(handshakeCompletionMessage, keys);
       } else {
         console.log(`user ${receivedData.userId}: ` + decryptedMessage);
         if (receivedData.userId !== serverRandom) {
-          sendMessage(decryptedMessage, receivedData.userId);
+          sendMessage(decryptedMessage, keys, receivedData.userId);
         }
       }
     }
