@@ -48,7 +48,8 @@ function decryptMessage(key, encryptedMessage) {
 const verifyCertificate = certificate => {
   const knownIssuers = [
     'C=AU\nST=Some-State\nO=Internet Widgits Pty Ltd',
-    'C=UA\nST=Zhytomyr-Region\nO=Readme Experts Ltd'
+    'C=UA\nST=Zhytomyr-Region\nO=Readme Experts Ltd',
+    'C=UA\nST=Zhytomyr-Region\nL=Zhytomyr\nO=Readme Experts\nCN=AkaeYuhi'
   ];
   try {
     const parsedCertificate = new crypto.X509Certificate(certificate);

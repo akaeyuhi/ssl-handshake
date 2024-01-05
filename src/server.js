@@ -10,6 +10,8 @@ const {
   getMessageFromData
 } = require('./utils.js');
 
+
+
 let clients = [];
 const server = net.createServer(socket => {
   console.log('Client connected');
@@ -18,6 +20,8 @@ const server = net.createServer(socket => {
   const serverCertificate = fs.readFileSync('./keys/server-cert.pem');
   const initPayload = { random: serverRandom, certificate: serverCertificate };
   const serverKey = fs.readFileSync('./keys/server-key.pem');
+
+  socket.write(getMessageFromData('привіт сервера', initPayload));
 
   const sendMessage = (message, keys, userId = serverRandom, payload = {}) => {
     const encryptedMessage = encryptMessage(keys.serverKey, message);
@@ -32,8 +36,6 @@ const server = net.createServer(socket => {
       }
     }
   };
-
-  socket.write(getMessageFromData('привіт сервера', initPayload));
 
   socket.on('data', data => {
     let receivedData = null;
