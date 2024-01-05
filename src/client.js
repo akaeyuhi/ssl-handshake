@@ -55,7 +55,7 @@ client.on('data', data => {
     if (isCertificateValid) {
       console.log('Server certificate verified by client');
 
-      const premasterSecret = 'ThisIsPremasterSecret';
+      const premasterSecret = crypto.randomBytes(16).toString('hex');
       const encryptedPremaster = crypto.publicEncrypt(
         {
           key: certificate,
