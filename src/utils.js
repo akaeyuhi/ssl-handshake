@@ -11,6 +11,7 @@ class Client {
     this.random = random;
     this.socket = socket;
   }
+
   set keys(sessionKeys) {
     this.sessionKeys = sessionKeys;
   }
@@ -83,11 +84,11 @@ function getMessageFromData(message = '', payload = {}) {
 async function* questions(query) {
   const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout,
+    output: process.stdout
   });
 
   try {
-    for (;;) {
+    for (; ;) {
       yield new Promise(resolve => rl.question(query, resolve));
     }
   } finally {

@@ -7,7 +7,7 @@ const {
   encryptMessage,
   generateSessionKeys,
   decryptMessage,
-  getMessageFromData,
+  getMessageFromData
 } = require('./utils.js');
 
 let clients = [];
@@ -50,9 +50,9 @@ const server = net.createServer(socket => {
       const decryptedPremaster = crypto.privateDecrypt(
         {
           key: serverKey,
-          padding: crypto.constants.RSA_PKCS1_PADDING,
+          padding: crypto.constants.RSA_PKCS1_PADDING
         },
-        Buffer.from(receivedData.premaster),
+        Buffer.from(receivedData.premaster)
       );
       const client = clients.find(item => item.random === receivedData.userId);
       client.keys = generateSessionKeys(client.random, serverRandom, decryptedPremaster);
@@ -80,8 +80,7 @@ const server = net.createServer(socket => {
 
   socket.on('end', () => {
     console.log('Client disconnected');
-    const newClients = clients.filter(item => item.socket !== socket);
-    clients = newClients;
+    clients = clients.filter(item => item.socket !== socket);
   });
 });
 

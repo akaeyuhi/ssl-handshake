@@ -59,7 +59,7 @@ client.on('data', data => {
       const encryptedPremaster = crypto.publicEncrypt(
         {
           key: certificate,
-          padding: crypto.constants.RSA_PKCS1_PADDING,
+          padding: crypto.constants.RSA_PKCS1_PADDING
         },
         Buffer.from(premasterSecret)
       );
