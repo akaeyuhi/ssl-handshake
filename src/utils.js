@@ -4,10 +4,13 @@ const readline = require('node:readline');
 
 class Client {
   random = '';
+  id = '';
   sessionKeys = null;
   socket = null;
+  hashes = [];
 
-  constructor(random, socket) {
+  constructor(id, random, socket) {
+    this.id = id;
     this.random = random;
     this.socket = socket;
   }
@@ -31,7 +34,6 @@ function encryptMessage(key, message) {
 
 function decryptMessage(key, encryptedMessage) {
   const encryptedString = Buffer.from(encryptedMessage);
-  // Розшифрування повідомлення сеансовим ключем
   const iv = encryptedString.subarray(0, 16);
   const encrypted = encryptedString.subarray(16);
 
@@ -44,6 +46,17 @@ function decryptMessage(key, encryptedMessage) {
     return e;
   }
 }
+
+const calculateHash = (prevHash, data) => {
+  const hash = crypto.createHash('sha256');
+  hash.update(prevHash + data);
+  return hash.digest('hex');
+};
+
+const isValidBlock = (message, hash, prevHash) => {
+  const calculatedHash = calculateHash(prevHash, message);
+  return calculatedHash === hash;
+};
 
 const verifyCertificate = certificate => {
   const knownIssuers = [
@@ -104,5 +117,7 @@ module.exports = {
   decryptMessage,
   generateSessionKeys,
   getMessageFromData,
-  questions
+  questions,
+  calculateHash,
+  isValidBlock
 };

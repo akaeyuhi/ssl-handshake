@@ -7,8 +7,10 @@ const {
   encryptMessage,
   generateSessionKeys,
   decryptMessage,
-  getMessageFromData
+  getMessageFromData,
+  calculateHash
 } = require('./utils.js');
+const { isValidBlock } = require('./utils');
 
 
 
@@ -24,8 +26,14 @@ const server = net.createServer(socket => {
   socket.write(getMessageFromData('привіт сервера', initPayload));
 
   const sendMessage = (message, keys, userId = serverRandom, payload = {}) => {
-    const encryptedMessage = encryptMessage(keys.serverKey, message);
-    socket.write(getMessageFromData(encryptedMessage, { userId, ...payload }));
+    const client = clients.find(item => item.socket === socket);
+
+    if (client) {
+      const hash = calculateHash(client.hashes[client.hashes.length - 1], message);
+      client.hashes.push(hash);
+      const encryptedMessage = encryptMessage(keys.serverKey, message);
+      socket.write(getMessageFromData(encryptedMessage, { userId, hash, ...payload }));
+    }
   };
 
   const sendToAll = (message, userId) => {
@@ -41,13 +49,14 @@ const server = net.createServer(socket => {
     let receivedData = null;
     try {
       receivedData = JSON.parse(data.toString());
+      console.dir(receivedData);
     } catch (e) {
       console.error(e);
       socket.end();
     }
 
     if (receivedData && receivedData.message === 'привіт') {
-      clients.push(new Client(receivedData.random, socket));
+      clients.push(new Client(receivedData.userId, receivedData.random, socket));
     } else if (receivedData && receivedData.message === 'premaster') {
       const decryptedPremaster = crypto.privateDecrypt(
         {
@@ -56,15 +65,24 @@ const server = net.createServer(socket => {
         },
         Buffer.from(receivedData.premaster)
       );
-      const client = clients.find(item => item.random === receivedData.userId);
+      const client = clients.find(item => item.id === receivedData.userId);
       client.keys = generateSessionKeys(client.random, serverRandom, decryptedPremaster);
 
       const readyMessage = 'готовий';
       sendMessage(readyMessage, client.sessionKeys);
 
     } else if (receivedData && receivedData.message) {
-      const keys = clients.find(item => item.random === receivedData.userId).sessionKeys;
+      const client = clients.find(item => item.socket === socket);
+      const keys = client.sessionKeys;
       const decryptedMessage = decryptMessage(keys.clientKey, receivedData.message);
+
+      if (isValidBlock(decryptedMessage, receivedData.hash,
+        client.hashes[client.hashes.length - 1]) ||
+        !client.hashes.length) {
+        client.hashes.push(receivedData.hash);
+      } else {
+        return console.log('Invalid block received. Discarding message.');
+      }
 
       if (decryptedMessage === 'готовий') {
         const handshakeCompletionMessage = 'Здійснюється безпечне симетричне шифрування. ' +
@@ -73,6 +91,7 @@ const server = net.createServer(socket => {
         sendMessage(handshakeCompletionMessage, keys);
       } else {
         console.log(`user ${receivedData.userId}: ` + decryptedMessage);
+        console.log(receivedData.userId, client.hashes);
         if (receivedData.userId !== serverRandom) {
           sendToAll(decryptedMessage, receivedData.userId);
         }

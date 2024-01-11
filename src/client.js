@@ -1,6 +1,7 @@
 'use strict';
 const net = require('net');
 const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
 const {
   encryptMessage,
   decryptMessage,
@@ -9,20 +10,27 @@ const {
   verifyCertificate,
   questions
 } = require('./utils.js');
+const { calculateHash, isValidBlock } = require('./utils');
 
 let sessionKeys;
 let clientRandom;
 let serverRandom;
+let clientId;
+const clientHashes = [];
 
 const client = net.createConnection({ port: 3000 }, () => {
   console.log('Connected to server');
   clientRandom = crypto.randomBytes(16).toString('hex');
-  client.write(getMessageFromData('привіт', { random: clientRandom }));
+  clientId = uuidv4();
+  client.write(getMessageFromData('привіт', { userId: clientId, random: clientRandom }));
 });
 
 const sendMessage = (message, payload = {}) => {
+  const prevHash = clientHashes ? clientHashes[clientHashes.length - 1] : '';
+  const hash = calculateHash(prevHash, message);
+  clientHashes.push(hash);
   const encryptedMessage = encryptMessage(sessionKeys.clientKey, message);
-  client.write(getMessageFromData(encryptedMessage, { userId: clientRandom, ...payload }));
+  client.write(getMessageFromData(encryptedMessage, { userId: clientId, hash, ...payload }));
 };
 
 const chat = async () => {
@@ -65,14 +73,22 @@ client.on('data', data => {
       );
       client.write(getMessageFromData(
         'premaster',
-        { premaster: encryptedPremaster, userId: clientRandom }));
+        { premaster: encryptedPremaster, userId: clientId }));
       sessionKeys = generateSessionKeys(clientRandom, serverRandom, premasterSecret);
     } else {
       console.log('Server certificate verification failed');
       client.end();
     }
   } else if (receivedData && receivedData.message) {
+
     const decryptedMessage = decryptMessage(sessionKeys.serverKey, receivedData.message);
+
+    if (isValidBlock(decryptedMessage, receivedData.hash, clientHashes[clientHashes.length - 1]) ||
+      !clientHashes[clientHashes.length - 1]) {
+      clientHashes.push(receivedData.hash);
+    } else {
+      return console.log('Invalid block received. Discarding message.');
+    }
     if (decryptedMessage === 'готовий') {
       const readyMessage = 'готовий';
       sendMessage(readyMessage);
